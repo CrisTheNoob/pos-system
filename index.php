@@ -185,8 +185,104 @@ if (isset($_GET['search_barcode'])) {
                                     $conn->close();
                                     break;
                                 
-                            case 'categories':
-                                echo '<div class="card p-4"><h2>Product Categories</h2><p>View and manage product categories.</p></div>';
+                                    case 'categories':
+                                        include 'db.php';
+                                    
+                                        
+                                        $categoryQuery = "
+                                            SELECT category AS category_name, COUNT(*) AS product_count
+                                            FROM Products
+                                            GROUP BY category
+                                            ORDER BY category
+                                        ";
+                                        $categoryResult = $conn->query($categoryQuery);
+                                    
+                                        
+                                        $products = [];
+                                    
+                                        
+                                        if (isset($_GET['category_name']) && !empty($_GET['category_name'])) {
+                                            $selectedCategoryName = $_GET['category_name']; 
+                                    
+                                            $productQuery = "
+                                                SELECT p.barcode, p.itemDescription, p.price, s.supplier_name
+                                                FROM Products p
+                                                LEFT JOIN Suppliers s ON p.supplier_id = s.supplier_id
+                                                WHERE p.category = ?
+                                            ";
+                                            $stmt = $conn->prepare($productQuery);
+                                            if ($stmt) {
+                                                $stmt->bind_param("s", $selectedCategoryName);
+                                                $stmt->execute();
+                                                $productResult = $stmt->get_result();
+                                    
+                                                
+                                                while ($row = $productResult->fetch_assoc()) {
+                                                    $products[] = $row;
+                                                }
+                                            } else {
+                                                echo '<p class="text-danger">Error: Unable to prepare the product query.</p>';
+                                            }
+                                        }
+                                    
+                                        
+                                        echo '<div class="card p-4">
+                                                <h2>Product Categories</h2>
+                                                <p>View and manage product categories.</p>
+                                                
+                                                <!-- Category Selection -->
+                                                <form method="GET" action="">
+                                                    <div class="mb-3">
+                                                        <label for="category_name" class="form-label">Select a Category:</label>
+                                                        <select id="category_name" name="category_name" class="form-select" required>
+                                                            <option value="">-- Select a Category --</option>';
+                                    
+                                                            
+                                                            while ($category = $categoryResult->fetch_assoc()) {
+                                                                echo '<option value="' . htmlspecialchars($category['category_name']) . '" ' . 
+                                                                     (isset($selectedCategoryName) && $selectedCategoryName == $category['category_name'] ? 'selected' : '') . '>' .
+                                                                     htmlspecialchars($category['category_name']) . ' (' . $category['product_count'] . ')' .
+                                                                     '</option>';
+                                                            }
+                                    
+                                        echo        '</select>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-primary">Filter</button>
+                                                </form>';
+                                    
+                                                
+                                                if (!empty($products)) {
+                                                    echo '<h2 class="mt-4">Products in Category: ' . htmlspecialchars($selectedCategoryName) . '</h2>';
+                                                    echo '<table class="table table-bordered table-striped">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Barcode</th>
+                                                                    <th>Product Name</th>
+                                                                    <th>Price</th>
+                                                                    <th>Supplier</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>';
+                                                    
+                                                            foreach ($products as $product) {
+                                                                echo '<tr>
+                                                                        <td>' . htmlspecialchars($product['barcode']) . '</td>
+                                                                        <td>' . htmlspecialchars($product['itemDescription']) . '</td>
+                                                                        <td>' . htmlspecialchars($product['price']) . '</td>
+                                                                        <td>' . htmlspecialchars($product['supplier_name'] ?? 'N/A') . '</td>
+                                                                      </tr>';
+                                                            }
+                                    
+                                                    echo    '</tbody>
+                                                          </table>';
+                                                } elseif (isset($selectedCategoryName)) {
+                                                    echo '<p class="mt-4 text-warning">No products found in this category.</p>';
+                                                }
+                                    
+                                        echo '</div>';
+                                        break;
+                                    
+                                    
                                 break;
                             case 'suppliers':
                                 echo '<div class="card p-4"><h2>Suppliers</h2><p>View and manage suppliers.</p></div>';
